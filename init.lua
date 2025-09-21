@@ -3,7 +3,7 @@
 =====================================================================
 ==================== READ THIS BEFORE CONTINUING ====================
 =====================================================================
-========                                    .-----.          ========
+=======                                    .-----.          ========
 ========         .----------------------.   | === |          ========
 ========         |.-""""""""""""""""""-.|   |-----|          ========
 ========         ||                    ||   | === |          ========
@@ -605,14 +605,14 @@ require('lazy').setup({
       })
 
       -- Change diagnostic symbols in the sign column (gutter)
-      -- if vim.g.have_nerd_font then
-      --   local signs = { ERROR = '', WARN = '', INFO = '', HINT = '' }
-      --   local diagnostic_signs = {}
-      --   for type, icon in pairs(signs) do
-      --     diagnostic_signs[vim.diagnostic.severity[type]] = icon
-      --   end
-      --   vim.diagnostic.config { signs = { text = diagnostic_signs } }
-      -- end
+      if vim.g.have_nerd_font then
+        local signs = { ERROR = '', WARN = '', INFO = '', HINT = '' }
+        local diagnostic_signs = {}
+        for type, icon in pairs(signs) do
+          diagnostic_signs[vim.diagnostic.severity[type]] = icon
+        end
+        vim.diagnostic.config { signs = { text = diagnostic_signs } }
+      end
 
       -- LSP servers and clients are able to communicate to each other what features they support.
       --  By default, Neovim doesn't support everything that is in the LSP specification.
@@ -632,12 +632,25 @@ require('lazy').setup({
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
         clangd = {},
-        pylsp = {
-          plugins = {
-          black = {enabled = true},
-          jedi_completion = {enabled = true},
+        -- Add pyright
+        pyright = {
+          settings = {
+            python = {
+              analysis = {
+                autoSearchPaths = true,
+                useLibraryCodeForTypes = true,
+                diagnosticMode = 'workspace',
+                typeCheckingMode = 'basic', -- You can change this to 'strict' if you want stricter type checking
+              },
             },
           },
+        },
+        -- pylsp = {
+        --   plugins = {
+        --     black = { enabled = true },
+        --     jedi_completion = { enabled = true },
+        --   },
+        -- },
         -- gopls = {},
         -- pyright = {
         --   settings = {
@@ -700,6 +713,8 @@ require('lazy').setup({
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
+        ensure_installed = { 'pyright' },
+        automatic_installation = true,
         handlers = {
           function(server_name)
             local server = servers[server_name] or {}
@@ -868,54 +883,160 @@ require('lazy').setup({
           { name = 'nvim_lsp' },
           { name = 'luasnip' },
           { name = 'path' },
+          -- Copilot source
+          { name = 'copilot', group_index = 2 },
+        },
+        formatting = {
+          fields = { 'abbr', 'kind' }, -- Name | icon
+          expandable_indicator = true,
+          format = function(_, item) -- lspkind behaviour with mini.icons and nvim-highlight-colors (add cute little icons and css colors)
+            local color_item = require('nvim-highlight-colors').format(entry, { kind = item.kind })
+            item.kind, item.kind_hl_group = require('mini.icons').get('lsp', item.kind) .. ' '
+            if color_item.abbr_hl_group then
+              item.kind_hl_group = color_item.abbr_hl_group
+              item.kind = color_item.abbr
+            end
+
+            if item.kind == 'copilot' then
+              item.kind = ' '
+              item.kind_hl_group = 'CmpItemKindCopilot'
+            end
+
+            return item
+          end,
+        },
+        window = { -- fancier windows
+          completion = {
+            border = {
+              { '󱐋', 'WarningMsg' },
+              { '─', 'Comment' },
+              { '╮', 'Comment' },
+              { '│', 'Comment' },
+              { '╯', 'Comment' },
+              { '─', 'Comment' },
+              { '╰', 'Comment' },
+              { '│', 'Comment' },
+            },
+          },
+          documentation = {
+            border = {
+              { '󰙎', 'DiagnosticHint' },
+              { '─', 'Comment' },
+              { '╮', 'Comment' },
+              { '│', 'Comment' },
+              { '╯', 'Comment' },
+              { '─', 'Comment' },
+              { '╰', 'Comment' },
+              { '│', 'Comment' },
+            },
+          },
         },
       }
     end,
   },
-
-  { -- You can easily change to a different colorscheme.
-    -- Change the name of the colorscheme plugin below, and then
-    -- change the command in the config to whatever the name of that colorscheme is.
-    --
-    -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'ellisonleao/gruvbox.nvim',
-    priority = 1000, -- Make sure to load this before all the other start plugins.
-    opts = {
-      terminal_colors = true, -- add neovim terminal colors
-      undercurl = true,
-      underline = true,
-      bold = true,
-      italic = {
-        strings = true,
-        emphasis = true,
-        comments = true,
-        operators = false,
-        folds = true,
-      },
-      strikethrough = true,
-      invert_selection = false,
-      invert_signs = false,
-      invert_tabline = false,
-      invert_intend_guides = false,
-      inverse = true, -- invert background for search, diffs, statuslines and errors
-      contrast = 'hard', -- can be "hard", "soft" or empty string
-      palette_overrides = {},
-      overrides = {},
-      dim_inactive = false,
-      transparent_mode = true,
-    },
-    init = function()
-      -- Load the colorscheme here.
-      -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.o.background = 'dark'
-      vim.cmd.colorscheme 'gruvbox'
-
-      -- You can configure highlights by doing something like:
-      vim.cmd.hi 'Comment gui=none'
+  { --* Nice looking icons *--
+    'echasnovski/mini.icons',
+    event = 'VeryLazy',
+    config = function()
+      require('mini.icons').setup {
+        lsp = { -- Icons stollen from lspkind.nvim
+          text = { glyph = '󰉿' },
+          method = { glyph = '󰆧' },
+          ['function'] = { glyph = '󰊕' },
+          constructor = { glyph = '' },
+          field = { glyph = '󰜢' },
+          variable = { glyph = '󰀫' },
+          class = { glyph = '󰠱' },
+          interface = { glyph = '' },
+          module = { glyph = '' },
+          property = { glyph = '󰜢' },
+          unit = { glyph = '󰑭' },
+          value = { glyph = '󰎠' },
+          enum = { glyph = '' },
+          keyword = { glyph = '󰌋' },
+          snippet = { glyph = '' },
+          color = { glyph = '󰏘' },
+          file = { glyph = '󰈙' },
+          reference = { glyph = '󰈇' },
+          folder = { glyph = '󰉋' },
+          enumMember = { glyph = '' },
+          constant = { glyph = '󰏿' },
+          struct = { glyph = '󰙅' },
+          event = { glyph = '' },
+          operator = { glyph = '󰆕' },
+          typeParameter = { glyph = '' },
+          copilot = { glyph = '' },
+        },
+      }
+      MiniIcons.mock_nvim_web_devicons() -- nvim_devicons compatibility layer
     end,
   },
-
+  -- { -- You can easily change to a different colorscheme.
+  --   -- Change the name of the colorscheme plugin below, and then
+  --   -- change the command in the config to whatever the name of that colorscheme is.
+  --   --
+  --   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
+  --   'ellisonleao/gruvbox.nvim',
+  --   priority = 1000, -- Make sure to load this before all the other start plugins.
+  --   opts = {
+  --     terminal_colors = true, -- add neovim terminal colors
+  --     undercurl = true,
+  --     underline = true,
+  --     bold = true,
+  --     italic = {
+  --       strings = true,
+  --       emphasis = true,
+  --       comments = true,
+  --       operators = false,
+  --       folds = true,
+  --     },
+  --     strikethrough = true,
+  --     invert_selection = false,
+  --     invert_signs = false,
+  --     invert_tabline = false,
+  --     invert_intend_guides = false,
+  --     inverse = true, -- invert background for search, diffs, statuslines and errors
+  --     contrast = 'hard', -- can be "hard", "soft" or empty string
+  --     palette_overrides = {},
+  --     overrides = {},
+  --     dim_inactive = false,
+  --     transparent_mode = true,
+  --   },
+  --   init = function()
+  --     -- Load the colorscheme here.
+  --     -- Like many other themes, this one has different styles, and you could load
+  --     -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
+  --     vim.o.background = 'dark'
+  --     vim.cmd.colorscheme 'gruvbox'
+  --
+  --     -- You can configure highlights by doing something like:
+  --     vim.cmd.hi 'Comment gui=none'
+  --   end,
+  -- },
+  { -- Colorscheme
+    'catppuccin/nvim',
+    name = 'catppuccin',
+    priority = 1000,
+    config = function()
+      require('catppuccin').setup {
+        flavour = 'mocha', -- You can choose: latte, frappe, macchiato, mocha,
+        transparent_background = true,
+      }
+      vim.cmd.colorscheme 'catppuccin'
+    end,
+  },
+  { --* Highlight colors and add color completions *--
+    'brenoprata10/nvim-highlight-colors',
+    event = 'VeryLazy',
+    opts = {
+      virtual_symbol_suffix = ' ',
+      virtual_symbol_prefix = ' ',
+      virtual_symbol_position = 'eow',
+      virtual_symbol = '󱓻',
+      render = 'virtual',
+      enable_tailwind = true,
+    },
+  },
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
 
@@ -981,11 +1102,94 @@ require('lazy').setup({
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
-
-  -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
-  -- init.lua. If you want these files, they are in the repository, so you can just download them and
-  -- place them in the correct locations.
-
+  {
+    'stevearc/oil.nvim',
+    opts = {},
+    dependencies = { { 'echasnovski/mini.icons', opts = {} } },
+    config = function()
+      require('oil').setup {
+        keymaps = {
+          ['yp'] = {
+            desc = 'Copy filepath to system clipboard',
+            callback = function()
+              -- Get the full path of the current entry
+              local entry_path = require('oil.actions').copy_entry_path.callback()
+              if entry_path then
+                -- Use macOS's `pbcopy` to copy to the system clipboard
+                vim.fn.system('pbcopy', entry_path)
+                vim.notify('Copied to clipboard: ' .. entry_path, vim.log.levels.INFO)
+              else
+                vim.notify('Failed to copy filepath', vim.log.levels.ERROR)
+              end
+            end,
+          },
+        },
+      }
+    end,
+    lazy = false,
+  },
+  {
+    'zbirenbaum/copilot.lua',
+    event = 'InsertEnter',
+    config = function()
+      require('copilot').setup {
+        suggestion = {
+          enabled = false,
+          auto_trigger = false, -- Automatically show suggestions
+          keymap = {
+            accept = '<C-y>', -- Accept suggestion with Ctrl+l
+            next = '<C-n>', -- Next suggestion
+            prev = '<C-p>', -- Previous suggestion
+            dismiss = '<C-e>', -- Dismiss suggestion
+          },
+        },
+        panel = {
+          enabled = false,
+          auto_refresh = true,
+        },
+      }
+    end,
+  },
+  {
+    'zbirenbaum/copilot-cmp',
+    config = function()
+      require('copilot_cmp').setup()
+    end,
+  },
+  {
+    'harrisoncramer/gitlab.nvim',
+    dependencies = {
+      'MunifTanjim/nui.nvim',
+      'nvim-lua/plenary.nvim',
+      'sindrets/diffview.nvim',
+      'stevearc/dressing.nvim', -- Recommended but not required. Better UI for pickers.
+      'nvim-tree/nvim-web-devicons', -- Recommended but not required. Icons in discussion tree.
+    },
+    build = function()
+      require('gitlab.server').build(true)
+    end, -- Builds the Go binary
+    config = function()
+      require 'custom.gitlab' -- Load the GitLab configuration from the custom file
+    end,
+  },
+  {
+    'lervag/vimtex',
+    lazy = false, -- we don't want to lazy load VimTeX
+    init = function()
+      -- VimTeX configuration goes here, e.g.
+      vim.g.vimtex_view_method = 'zathura'
+    end,
+  },
+  {
+    'nvim-tree/nvim-tree.lua',
+    version = '*',
+    dependencies = {
+      'nvim-tree/nvim-web-devicons', -- optional, for file icons
+    },
+    config = function()
+      require('nvim-tree').setup {}
+    end,
+  },
   -- NOTE: Next step on your Neovim journey: Add/Configure additional plugins for Kickstart
   --
   --  Here are some example plugins that I've included in the Kickstart repository.
